@@ -6,7 +6,6 @@ class SnakeEnv(gym.Env):
 	metadata = {'render.modes': ['']}
 
 	action_space = ["left", "right", "up", "down", "none"]
-	observation_space =
 
 	def __init__(self, tile_size, board_size, num_agents,):
 		self.tile_size = tile_size
@@ -53,72 +52,83 @@ class SnakeEnv(gym.Env):
 		else:
 			return projected_tile[0]+1, projected_tile[1]
 
+	"""
+	action: action array where len(action) == num_agents
+
+	Returns
+	observation: array
+	reward: array
+	done: boolean is true if episode is over (all agents are done)
+	"""
 	def step(self, action):
 		'''
 		GAME LOGIC
 		'''
-		projected_tile = _calculate_proj(self.player_direction, self.head)
+		#assign actions to players
 
-		assert(len(action) == self.num_agents)
-
-		for i in range
+		#get projected_tiles
+		for player in self.players:
+			player.projected_tile = _calculate_proj(player.player_direction, player.head)
 			if act == "down" and player_direction != "up":
-				projected_tile = head[0], head[1]+1
-				player_direction = "down"
+				player.projected_tile = head[0], head[1]+1
+				player.direction = "down"
 			if act == "up" and player_direction != "down":
-				projected_tile = head[0], head[1]-1
-				player_direction = "up"
+				player.projected_tile = head[0], head[1]-1
+				player.direction = "up"
 			if act == "left" and player_direction != "right":
-				projected_tile = head[0]-1, head[1]
-				player_direction = "left"
+				player.projected_tile = head[0]-1, head[1]
+				player.direction = "left"
 			if act == "right" and player_direction != "left":
-				projected_tile = head[0]+1, head[1]
-				player_direction = "right"
+				player.projected_tile = head[0]+1, head[1]
+				player.player_direction = "right"
 			print(player_direction)
+
+		#check for collisions
+		for player in self.players:
+			if player.projected_tile in self.get_obstacles() or self._crossed_boundary(player):
+				#player is eliminated
+				self.players.remove(player) #fix this line of code lol
+		if self.players.empty():
+			done = true
+
+		#check for cookie collisions
+		for player in self.players:
+			if player.projected_tile not in self.cookie_locations:
+				player.player_length.pop()
+
+		#advance players
+		for player in self.players:
+			player.player_length.insert(0, player.projected_tile)
 
 		for event in pygame.event.get():
 			if event.type == pygame.QUIT: sys.exit()
 
-		#check for collisions
-		if projected_tile[0] >= board_size or projected_tile[0] < 0: #wall collision
-			game_over=True
-		if projected_tile[1] >= board_size or projected_tile[1] < 0:
-			game_over=True
+		#return array of observations, one for each players
+		observation = self._get_observation()
 
-		if projected_tile in player_length: #self collision
-			game_over=True
 
-		if projected_tile != cookie_pos:
-			player_length.pop()
-		else:
-			cookie_pos = random_position(board_size)
-
-		player_length.insert(0, projected_tile)
-		print("player_length: ", player_length)
-		print("cookie_pos:", cookie_pos)
-		head = projected_tile
-		print(projected_tile)
+		return observation, reward, done
 
 	def reset(self):
 		self.__init__()
+
 	def render(self, mode='human', close=False):
-		'''
-		DRAWING THE BOARD
-		'''
 
-		#clear screen
-		screen.fill(background)
+		if mode == 'human':
+			'''
+			DRAWING THE BOARD
+			'''
+			#clear screen
+			screen.fill(background)
 
-		#draw the player
-		for pos in player_length:
-			rect = pygame.Rect(pos[0]*tile_size, pos[1]*tile_size, tile_size-2, tile_size-2)
-			screen.fill(color=body, rect=rect)
-		pygame.display.flip()
-		#draw the cookie
-		rect1 = pygame.Rect(cookie_pos[0]*tile_size, cookie_pos[1]*tile_size, tile_size-2, tile_size-2)
-		screen.fill( color=(255,0,0), rect=rect1)
-		#draw the score
-		#font_screen = my_font.render(score_text, color=black)
-		#screen.blit(font_screen, font_position)
-
-		pygame.display.flip()
+			#draw the player
+			for pos in player_length:
+				rect = pygame.Rect(pos[0]*tile_size, pos[1]*tile_size, tile_size-2, tile_size-2)
+				screen.fill(color=body, rect=rect)
+			pygame.display.flip()
+			#draw the cookie
+			rect1 = pygame.Rect(cookie_pos[0]*tile_size, cookie_pos[1]*tile_size, tile_size-2, tile_size-2)
+			screen.fill( color=(255,0,0), rect=rect1)
+			pygame.display.flip()
+		if mode == 'rgb':
+			#get rgb array and make video 
